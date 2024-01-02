@@ -1,6 +1,5 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useInterval } from '../hooks/use-interval';
-// import { secondsToTime } from '../utils/seconds-to-time';
 import { Button } from './button';
 import { Timer } from './timer';
 
@@ -13,19 +12,56 @@ interface Props {
 }
 export function PomodoroTimer(props: Props): JSX.Element {
   const [mainTime, setMainTime] = useState(props.pomodoroTime);
+  const [timeCouting, setTimeCouting] = useState(false);
+  const [working, setWorking] = useState(false);
+  const [resting, setResting] = useState(false);
+
+  useEffect(() => {
+    if (working) document.body.classList.add('working');
+    if (resting) document.body.classList.remove('working');
+  }, [working]);
 
   useInterval(() => {
     setMainTime(mainTime - 1);
-  }, 1000)
+  }, timeCouting ? 1000 : null);
+
+  const configureWork = () => {
+    setTimeCouting(true);
+    setWorking(true);
+    setResting(false);
+    setMainTime(props.pomodoroTime);
+  };
+
+  const configureRest = (long: boolean) => {
+    setTimeCouting(true);
+    setWorking(false);
+    setResting(true);
+
+    if (long) {
+      setMainTime(props.longRestTime);
+    } else {
+      setMainTime(props.shortRestTime);
+    }
+  }
 
   return (
     <div className="pomodoro">
       <h2>You are: working</h2>
       <Timer mainTime={mainTime} />
       <div className="controls">
-        <Button text="teste" />
-        <Button text="teste" />
-        <Button text="teste" />
+        <Button
+          text="Work"
+          onClick={() => configureWork()}
+        />
+        <Button
+          text="Rest"
+          onClick={() => configureRest(false)}
+        />
+        <Button
+          className={!working && !resting ? 'hidden' : ''}
+          text={timeCouting ? 'Pause' : 'Play'}
+          onClick={() => setTimeCouting(!timeCouting)}
+        />
       </div>
 
       <div className="datails">

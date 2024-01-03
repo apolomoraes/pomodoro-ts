@@ -1,9 +1,10 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { useInterval } from '../hooks/use-interval';
 import { Button } from './button';
 import { Timer } from './timer';
 import bellStart from '../sounds/bell-start.mp3';
 import bellFinish from '../sounds/bell-finish.mp3';
+import { secondsToTime } from '../utils/seconds-to-time';
 
 const audioStartWorking = new Audio(bellStart);
 const audioStopWorking = new Audio(bellFinish);
@@ -18,26 +19,28 @@ export function PomodoroTimer(props: Props): JSX.Element {
   const [timeCouting, setTimeCouting] = useState(false);
   const [working, setWorking] = useState(false);
   const [resting, setResting] = useState(false);
-
-  useEffect(() => {
-    if (working) document.body.classList.add('working');
-    if (resting) document.body.classList.remove('working');
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [working]);
+  const [cyclesQtdManager, setCyclesQtdManager] = useState(new Array(props.cycles - 1).fill(true));
+  const [completedCycles, setCompletedCycles] = useState(0);
+  const [fullWorkingTime, setFullWorkingTime] = useState(0);
+  const [numberOfPomodoros, setNumberOfPomodoros] = useState(0);
 
   useInterval(() => {
     setMainTime(mainTime - 1);
+
+    if (working) setFullWorkingTime(fullWorkingTime + 1);
   }, timeCouting ? 1000 : null);
 
-  const configureWork = () => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const configureWork = useCallback(() => {
     setTimeCouting(true);
     setWorking(true);
     setResting(false);
     setMainTime(props.pomodoroTime);
     audioStartWorking.play();
-  };
+  }, [setTimeCouting, setWorking, setResting, setMainTime, props.pomodoroTime]);
 
-  const configureRest = (long: boolean) => {
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const configureRest = useCallback((long: boolean) => {
     setTimeCouting(true);
     setWorking(false);
     setResting(true);
@@ -49,11 +52,34 @@ export function PomodoroTimer(props: Props): JSX.Element {
     }
 
     audioStopWorking.play();
-  }
+  }, [setTimeCouting, setWorking, setResting, setMainTime, props.longRestTime, props.shortRestTime]);
+
+  useEffect(() => {
+    if (working) document.body.classList.add('working');
+    if (resting) document.body.classList.remove('working');
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+
+    if (mainTime > 0) return;
+
+    if (working && cyclesQtdManager.length > 0) {
+      configureRest(false);
+      cyclesQtdManager.pop();
+    } else if (working && cyclesQtdManager.length <= 0) {
+      configureRest(true);
+      setCyclesQtdManager(new Array(props.cycles - 1).fill(true));
+      setCompletedCycles(completedCycles + 1);
+    }
+
+    if (working) setNumberOfPomodoros(numberOfPomodoros + 1);
+
+    if (resting) configureWork();
+
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [working, resting, mainTime, configureRest, setCyclesQtdManager, configureWork, cyclesQtdManager, numberOfPomodoros, props.cycles, completedCycles]);
 
   return (
     <div className="pomodoro">
-      <h2>You are: working</h2>
+      <h2>You are: {working ? 'Trabalhando' : 'Descansando'}</h2>
       <Timer mainTime={mainTime} />
       <div className="controls">
         <Button
@@ -72,9 +98,9 @@ export function PomodoroTimer(props: Props): JSX.Element {
       </div>
 
       <div className="datails">
-        <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Eius suscipit architecto magni at! Porro, incidunt. Delectus quia dignissimos reprehenderit voluptatem commodi doloribus impedit, maxime repellat hic nihil exercitationem atque modi.</p>
-        <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Eius suscipit architecto magni at! Porro, incidunt. Delectus quia dignissimos reprehenderit voluptatem commodi doloribus impedit, maxime repellat hic nihil exercitationem atque modi.</p>
-        <p>Lorem ipsum dolor sit amet consectetur adipisicing elit. Eius suscipit architecto magni at! Porro, incidunt. Delectus quia dignissimos reprehenderit voluptatem commodi doloribus impedit, maxime repellat hic nihil exercitationem atque modi.</p>
+        <p>Ciclos concluídos: {completedCycles}</p>
+        <p>Horas trabalhadas: {secondsToTime(fullWorkingTime)}</p>
+        <p>Pomodoros concluídos: {numberOfPomodoros}</p>
       </div>
     </div>
   )
